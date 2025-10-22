@@ -87,8 +87,15 @@ func Test_WaitIndexPoll(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("with retryable response 404 verify create", func(t *testing.T) {
+	t.Run("with retryable response 429 verify create", func(t *testing.T) {
 		client.On("GetIndexInfo", mock.Anything, v2.Stack(mockStack), v2.Index(mockIndexName)).Return(rateLimitResp, nil).Once()
+		client.On("GetIndexInfo", mock.Anything, v2.Stack(mockStack), v2.Index(mockIndexName)).Return(successRespOk, nil).Once()
+		err := idx.WaitIndexPoll(context.TODO(), client, mockStack, mockIndexName, wait.TargetStatusResourceExists, wait.PendingStatusVerifyCreated)
+		assert.NoError(t, err)
+	})
+
+	t.Run("with retryable response 404 verify create", func(t *testing.T) {
+		client.On("GetIndexInfo", mock.Anything, v2.Stack(mockStack), v2.Index(mockIndexName)).Return(notFoundResp, nil).Once()
 		client.On("GetIndexInfo", mock.Anything, v2.Stack(mockStack), v2.Index(mockIndexName)).Return(successRespOk, nil).Once()
 		err := idx.WaitIndexPoll(context.TODO(), client, mockStack, mockIndexName, wait.TargetStatusResourceExists, wait.PendingStatusVerifyCreated)
 		assert.NoError(t, err)

@@ -31,3 +31,6 @@
 
 ## Version v1.2.4
 * Hec tokens bug fix to prevent unintended over-writes
+
+## Version v1.2.5
+* Index Creation bug fix for index creation timeouts
