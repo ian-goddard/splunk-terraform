@@ -27,6 +27,7 @@ var (
 	mockDisabled          = false
 	mockToken             = "mock-token"
 	mockUseAck            = false
+	mockMeta              = "key1::value1 key2::value2"
 	mockAllowedIndexes    = []string{"main", "summary"}
 	mockDeploymentID      = "mock-id"
 	mockStatusRunning     = "running"
@@ -111,6 +112,7 @@ func genHecResp(code int) *http.Response {
 			Name:              mockHecName,
 			Token:             &mockToken,
 			UseAck:            &mockUseAck,
+			Meta:              &mockMeta,
 		}
 		hec := hec.Body{HTTPEventCollector: &v2.HecInfo{
 			Spec:  &hecSpec,
@@ -214,6 +216,7 @@ func Test_VerifyHecUpdate(t *testing.T) {
 				Disabled:          &mockDisabled,
 				Name:              mockHecName,
 				UseAck:            &mockUseAck,
+				Meta:              &mockMeta,
 			},
 			&v2.HecSpec{
 				AllowedIndexes:    &mockAllowedIndexes,
@@ -223,6 +226,7 @@ func Test_VerifyHecUpdate(t *testing.T) {
 				Disabled:          &mockDisabled,
 				Name:              mockHecName,
 				UseAck:            &mockUseAck,
+				Meta:              &mockMeta,
 			},
 		},
 		// Test Case 3: Tests incomplete update (defaultSource not updated)
@@ -417,6 +421,38 @@ func Test_VerifyHecUpdate(t *testing.T) {
 				Disabled:          &mockDisabled,
 				Token:             &mockToken,
 				UseAck:            nil,
+			},
+		},
+		// Test Case 15: Tests incomplete update (meta not updated)
+		{
+			false,
+			&v2.PatchHECJSONRequestBody{
+				Meta: &mockMeta,
+			},
+			&v2.HecSpec{
+				Meta:           &mockUnupdated,
+				AllowedIndexes: &mockAllowedIndexes,
+				DefaultIndex:   &mockDefaultIndex,
+				DefaultSource:  nil,
+				Disabled:       &mockDisabled,
+				Token:          &mockToken,
+				UseAck:         nil,
+			},
+		},
+		// Test Case 16: Tests incomplete update (meta nil)
+		{
+			false,
+			&v2.PatchHECJSONRequestBody{
+				Meta: &mockMeta,
+			},
+			&v2.HecSpec{
+				Meta:           nil,
+				AllowedIndexes: &mockAllowedIndexes,
+				DefaultIndex:   &mockDefaultIndex,
+				DefaultSource:  nil,
+				Disabled:       &mockDisabled,
+				Token:          &mockToken,
+				UseAck:         nil,
 			},
 		},
 	}

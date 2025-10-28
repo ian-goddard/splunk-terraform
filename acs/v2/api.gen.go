@@ -172,6 +172,9 @@ type HecInfo struct {
 
 // HecSpec defines model for HecSpec.
 type HecSpec struct {
+
+	// additional metadata in the format <key>::<value>, delimited by space.
+	Meta              *string   `json:"_meta,omitempty"`
 	AllowedIndexes    *[]string `json:"allowedIndexes,omitempty"`
 	DefaultHost       *string   `json:"defaultHost,omitempty"`
 	DefaultIndex      *string   `json:"defaultIndex,omitempty"`
@@ -497,6 +500,7 @@ type PrivateAppBody string
 type PrivateConnectivityEndpoints struct {
 	CustomerAccountIds      *[]string `json:"customerAccountIds,omitempty"`
 	Endpoint                *string   `json:"endpoint,omitempty"`
+	EndpointV6              *string   `json:"endpointV6,omitempty"`
 	Feature                 *string   `json:"feature,omitempty"`
 	Message                 *string   `json:"message,omitempty"`
 	PrivateSearchDNSRecords *[]string `json:"privateSearch-DNSRecords,omitempty"`
@@ -732,6 +736,7 @@ type Feature string
 
 // List of Feature
 const (
+	Feature_acs        Feature = "acs"
 	Feature_hec        Feature = "hec"
 	Feature_idm_api    Feature = "idm-api"
 	Feature_idm_ui     Feature = "idm-ui"
@@ -15430,3 +15435,4 @@ func ParseDescribeWorkflowResponse(rsp *http.Response) (*DescribeWorkflowRespons
 
 	return response, nil
 }
+

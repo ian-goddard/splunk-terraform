@@ -189,6 +189,7 @@ func Test_WaitVerifyHecUpdate(t *testing.T) {
 		DefaultSourcetype: nil,
 		Disabled:          &mockDisabled,
 		UseAck:            &mockUseAck,
+		Meta:              &mockMeta,
 	}
 
 	t.Run("with some client interface error", func(_ *testing.T) {
@@ -212,6 +213,7 @@ func Test_WaitVerifyHecUpdate(t *testing.T) {
 			UseAck:            &mockUseAck,
 			Disabled:          &mockDisabled,
 			AllowedIndexes:    &mockAllowedIndexes,
+			Meta:              &mockMeta,
 		}}})
 
 	mockResp := &http.Response{

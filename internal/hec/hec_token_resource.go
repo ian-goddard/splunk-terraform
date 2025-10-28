@@ -27,6 +27,7 @@ const (
 	DisabledKey          = "disabled"
 	TokenKey             = "token"
 	UseAckKey            = "use_ack"
+	MetaKey              = "_meta"
 )
 
 func hecTokenResourceSchema() map[string]*schema.Schema {
@@ -82,6 +83,12 @@ func hecTokenResourceSchema() map[string]*schema.Schema {
 			Computed:    true,
 			Description: "Indexer acknowledgement for this token: false = disabled, true = enabled",
 		},
+		MetaKey: {
+			Type:        schema.TypeString,
+			Optional:    true,
+			Computed:    true,
+			Description: "Metadata for the HEC token in the format: key::value, delimited by spaces.",
+		},
 	}
 }
 
@@ -122,6 +129,7 @@ func resourceHecTokenCreate(ctx context.Context, d *schema.ResourceData, m inter
 		Name:              hecName,
 		Token:             hecRequest.Token,
 		UseAck:            hecRequest.UseAck,
+		Meta:              hecRequest.Meta,
 	}
 
 	tflog.Info(ctx, fmt.Sprintf("%+v\n", createHecRequest))
@@ -218,6 +226,10 @@ func resourceHecTokenRead(ctx context.Context, d *schema.ResourceData, m interfa
 	}
 
 	if err := d.Set(UseAckKey, hec.UseAck); err != nil {
+		return diag.FromErr(err)
+	}
+
+	if err := d.Set(MetaKey, hec.Meta); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -350,6 +362,11 @@ func parseHecRequest(d *schema.ResourceData) *v2.HecSpec {
 		parsedData := useAck.(bool)
 		hecRequest.UseAck = &parsedData
 	}
+
+	if meta, _ := d.GetOk(MetaKey); meta != nil {
+		parsedData := meta.(string)
+		hecRequest.Meta = &parsedData
+	}
 	return &hecRequest
 }
 
@@ -384,6 +401,11 @@ func setPatchRequestBody(d *schema.ResourceData, hecRequest *v2.HecSpec) *v2.Pat
 	if d.HasChange(UseAckKey) {
 		patchRequest.UseAck = hecRequest.UseAck
 	}
+
+	if d.HasChange(MetaKey) {
+		patchRequest.Meta = hecRequest.Meta
+	}
+
 	return &patchRequest
 }
 

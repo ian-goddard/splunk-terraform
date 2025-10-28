@@ -17,6 +17,7 @@ resource "scp_hec_tokens" "hec-3" {
   allowed_indexes    = ["main", "summary"]
   default_index      = "main"
   default_sourcetype = "catalina"
+  _meta              = "key::value"
   lifecycle {
     prevent_destroy = true
   }

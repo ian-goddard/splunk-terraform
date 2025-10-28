@@ -34,3 +34,6 @@
 
 ## Version v1.2.5
 * Index Creation bug fix for index creation timeouts
+
+## Version v1.2.6
+* Introduced `_meta` field for HEC token resource
