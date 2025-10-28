@@ -23,6 +23,7 @@ var (
 	defaultSourcetype   = "catalina"
 	disabled            = "true"
 	useAck              = "true"
+	meta                = "env::prod app::myapp"
 	invalidDefaultIndex = "invalid"
 )
 
@@ -84,6 +85,7 @@ func TestAcc_SplunkCloudHEC_Create(t *testing.T) {
 				resource.TestCheckResourceAttr(newResourceName, hec.DefaultSourcetypeKey, defaultSourcetype),
 				resource.TestCheckResourceAttr(newResourceName, hec.DisabledKey, disabled),
 				resource.TestCheckResourceAttr(newResourceName, hec.UseAckKey, useAck),
+				resource.TestCheckResourceAttr(newResourceName, hec.MetaKey, meta),
 			),
 		},
 		// Expect Error on attempt to create resource that already exists
@@ -143,6 +145,7 @@ func TestAcc_SplunkCloudHEC_Update(t *testing.T) {
 				resource.TestCheckResourceAttr(resourceName, hec.DefaultSourcetypeKey, defaultSourcetype),
 				resource.TestCheckResourceAttr(resourceName, hec.DisabledKey, disabled),
 				resource.TestCheckResourceAttr(resourceName, hec.UseAckKey, useAck),
+				resource.TestCheckResourceAttr(resourceName, hec.MetaKey, meta),
 			),
 		},
 		// Expect Error from ACS API
@@ -206,8 +209,9 @@ func testAccInstanceConfigTestValidCreate(name string) string {
 		default_sourcetype = %[4]q
 		disabled = %[5]q 
 		use_ack = %[6]q
+		_meta = %[7]q
 }
-`, name, defaultIndex, string(allowedIndexesJSON), defaultSourcetype, disabled, useAck)
+`, name, defaultIndex, string(allowedIndexesJSON), defaultSourcetype, disabled, useAck, meta)
 }
 
 // Test error on user attempts to create resource that already exists
@@ -258,9 +262,10 @@ func testAccInstanceConfigTestValidUpdate(name string) string {
 		allowed_indexes = %[3]v
 		default_sourcetype = %[4]q
 		disabled = %[5]q 
-		use_ack = %[6]q 
+		use_ack = %[6]q
+		_meta = %[7]q
 }
-`, name, defaultIndex, string(allowedIndexesJSON), defaultSourcetype, disabled, useAck)
+`, name, defaultIndex, string(allowedIndexesJSON), defaultSourcetype, disabled, useAck, meta)
 }
 
 // Test error on user attempts to update Token attribute

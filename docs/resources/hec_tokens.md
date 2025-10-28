@@ -17,6 +17,7 @@ resource "scp_hec_tokens" "hec-2" {
   default_index = "main" 
   use_ack = true 
   disabled = false
+  _meta = "key::value"
   lifecycle {
     prevent_destroy = true
   }
@@ -39,6 +40,7 @@ resource "scp_hec_tokens" "hec-2" {
 - `disabled` (Boolean) Input disabled indicator: false = Input Not disabled, true = Input disabled
 - `token` (String) Token value for sending data to collector/event endpoint. Can not be updated after creation, if changed in config file terraform will propose a replacement (delete old HEC and recreate with new token). Use the lifecycle `prevent_destroy` meta-argument to prevent deletion if this field is changed.
 - `use_ack` (Boolean) Indexer acknowledgement for this token: false = disabled, true = enabled
+- `_meta` (String) Additional metadata in the format <key>::<value>, delimited by space
 
 ### Read-Only
 

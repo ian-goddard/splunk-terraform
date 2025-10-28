@@ -164,6 +164,9 @@ func VerifyHecUpdate(patchRequest v2.PatchHECJSONRequestBody, hec v2.HecSpec) bo
 	if patchRequest.UseAck != nil && (hec.UseAck == nil || *patchRequest.UseAck != *hec.UseAck) {
 		return false
 	}
+	if patchRequest.Meta != nil && (hec.Meta == nil || *patchRequest.Meta != *hec.Meta) {
+		return false
+	}
 	return true
 }
 
