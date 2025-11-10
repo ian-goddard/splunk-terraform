@@ -37,3 +37,6 @@
 
 ## Version v1.2.6
 * Introduced `_meta` field for HEC token resource
+
+## Version v1.2.7
+* Go updated to 1.25.3

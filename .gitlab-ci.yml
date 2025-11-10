@@ -1,4 +1,4 @@
-image: docker.repo.splunkdev.net/ci-cd/ci-container/golang-1.24:3.11.0
+image: docker.repo.splunkdev.net/ci-cd/ci-container/golang-1.25:4.3.1
 
 ###
 ### BASE VARIABLES
@@ -15,12 +15,12 @@ stages:
   - notify-victorops-alerts
 
 include:
-  - project: 'ci-cd/templates'
+  - project: "ci-cd/templates"
     ref: master
-    file: '/prodsec/.oss-scan.yml'
-  - project: 'prodsec/scp-scanning/gitlab-checkmarx'
+    file: "/prodsec/.oss-scan.yml"
+  - project: "prodsec/scp-scanning/gitlab-checkmarx"
     ref: latest
-    file: '/templates/.sast_scan.yml'
+    file: "/templates/.sast_scan.yml"
 
 # UnitTests
 unittest:
