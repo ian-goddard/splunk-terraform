@@ -16,12 +16,12 @@ const (
 
 var (
 	PendingStatusCRUD          = []string{http.StatusText(http.StatusTooManyRequests), http.StatusText(http.StatusFailedDependency)}
-	PendingStatusVerifyCreated = []string{http.StatusText(http.StatusFailedDependency), http.StatusText(http.StatusTooManyRequests), http.StatusText(http.StatusNotFound)}
-	PendingStatusVerifyDeleted = []string{http.StatusText(200), http.StatusText(http.StatusTooManyRequests)}
+	PendingStatusVerifyCreated = []string{http.StatusText(http.StatusFailedDependency), http.StatusText(http.StatusTooManyRequests)}
+	PendingStatusVerifyDeleted = []string{http.StatusText(http.StatusOK), http.StatusText(http.StatusTooManyRequests)}
 
-	TargetStatusResourceChange  = []string{http.StatusText(http.StatusAccepted)}
-	TargetStatusResourceExists  = []string{http.StatusText(200)}
-	TargetStatusResourceDeleted = []string{http.StatusText(404)}
+	TargetStatusResourceChange  = []string{http.StatusText(http.StatusAccepted), http.StatusText(http.StatusOK)}
+	TargetStatusResourceExists  = []string{http.StatusText(http.StatusOK)}
+	TargetStatusResourceDeleted = []string{http.StatusText(http.StatusNotFound)}
 )
 
 // GenerateWriteStateChangeConf creates configuration struct for the WaitForStateContext on resources undergoing write operation
@@ -48,4 +48,17 @@ func GenerateReadStateChangeConf(pending []string, target []string, fn resource.
 		MinTimeout: MinTimeOut,
 	}
 	return waitResourceRead
+}
+
+// GenerateDeleteStateChangeConf creates configuration struct for the WaitForStateContext on resources undergoing delete operation
+func GenerateDeleteStateChangeConf(fn resource.StateRefreshFunc) *resource.StateChangeConf {
+	waitResourceDelete := &resource.StateChangeConf{
+		Pending:    PendingStatusVerifyDeleted,
+		Target:     TargetStatusResourceDeleted,
+		Refresh:    fn,
+		Timeout:    Timeout,
+		Delay:      CrudDelayTime,
+		MinTimeout: MinTimeOut,
+	}
+	return waitResourceDelete
 }

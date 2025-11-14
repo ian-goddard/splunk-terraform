@@ -17,46 +17,48 @@ import (
 )
 
 const (
-	mockUsername = "mock-username"
-	mockPassword = "mock-password"
-	mockToken    = "mock-token"
-	mockStack    = "mock-stack"
-	mockTokenID  = "mock-token-id"
-	mockServer   = "https://mock.admin.splunk.com"
-	mockVersion  = "1.0.0"
+	mockUsername          = "mock-username"
+	mockPassword          = "mock-password"
+	mockToken             = "mock-token"
+	mockStack             = "mock-stack"
+	mockTokenID           = "mock-token-id"
+	mockServer            = "https://mock.admin.splunk.com"
+	mockVersion           = "1.0.0"
+	mockSplunkbaseSession = "xyz"
+	mockSplunkLoginToken  = "mock-splunk-login-token" //nolint:gosec
 )
 
 func TestGetClient(t *testing.T) {
-	assert := assert.New(t)
+	asserttion := assert.New(t)
 
 	t.Run("test basic get client", func(_ *testing.T) {
-		client, err := client.GetClient(mockServer, mockToken, mockVersion)
-		assert.NoError(err)
-		assert.NotNil(client)
+		acsClient, err := client.GetClient(mockServer, mockToken, mockVersion, mockSplunkbaseSession)
+		asserttion.NoError(err)
+		asserttion.NotNil(acsClient)
 	})
 }
 
 func TestCommonRequestEditors(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	t.Run("test bearer auth request editors", func(_ *testing.T) {
-		reqEditorFn := client.CommonRequestEditors(mockToken, mockVersion)
-		assert.NotNil(reqEditorFn)
-		assert.Equal(len(reqEditorFn), 2)
+		reqEditorFn := client.CommonRequestEditors(mockToken, mockVersion, mockSplunkbaseSession)
+		assertion.NotNil(reqEditorFn)
+		assertion.Equal(len(reqEditorFn), 4)
 	})
 }
 
 func TestAddBearerAuth(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	t.Run("test valid add basic auth", func(_ *testing.T) {
 		err := addBearerAuthTestCase(mockToken)
-		assert.NoError(err)
+		assertion.NoError(err)
 	})
 
 	t.Run("test empty token returns error", func(_ *testing.T) {
 		err := addBearerAuthTestCase("")
-		assert.ErrorContainsf(err, err.Error(), "provide a valid token")
+		assertion.ErrorContainsf(err, err.Error(), "provide a valid token")
 	})
 }
 
@@ -81,56 +83,57 @@ func addBearerAuthTestCase(token string) error {
 }
 
 func TestAddUserAgent(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 	req, err := http.NewRequest(http.MethodGet, "some-url", nil)
-	assert.NoError(err)
-	assert.NoError(client.AddUserAgent(req, mockVersion))
+	assertion.NoError(err)
+	err = client.AddUserAgent(req, mockVersion)
+	assertion.NoError(err)
 	expectedUserAgent := fmt.Sprintf("ACS-terraform-%s", mockVersion)
-	assert.Equal(expectedUserAgent, req.Header.Get("User-Agent"))
+	assertion.Equal(expectedUserAgent, req.Header.Get("User-Agent"))
 }
 
 func TestGetClientBasicAuth(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	t.Run("test basic get client", func(_ *testing.T) {
-		client, err := client.GetClientBasicAuth(mockServer, mockUsername, mockPassword, mockVersion)
-		assert.NoError(err)
-		assert.NotNil(client)
+		acsClient, err := client.GetClientBasicAuth(mockServer, mockUsername, mockPassword, mockVersion)
+		assertion.NoError(err)
+		assertion.NotNil(acsClient)
 	})
 }
 
 func TestCommonRequestEditorsBasicAuth(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	t.Run("test basic auth request editors", func(_ *testing.T) {
 		reqEditorFn := client.CommonRequestEditorsBasicAuth(mockUsername, mockPassword, mockVersion)
-		assert.NotNil(reqEditorFn)
-		assert.Equal(len(reqEditorFn), 2)
+		assertion.NotNil(reqEditorFn)
+		assertion.Equal(len(reqEditorFn), 2)
 	})
 
 	t.Run("test basic auth request editors", func(_ *testing.T) {
 		reqEditorFn := client.CommonRequestEditorsBasicAuth(mockUsername, "", mockVersion)
-		assert.NotNil(reqEditorFn)
-		assert.Equal(len(reqEditorFn), 2)
+		assertion.NotNil(reqEditorFn)
+		assertion.Equal(len(reqEditorFn), 2)
 	})
 }
 
 func TestAddBasicAuth(t *testing.T) {
-	assert := assert.New(t)
+	assertion := assert.New(t)
 
 	t.Run("test valid add basic auth", func(_ *testing.T) {
 		err := addBasicAuthTestCase(mockUsername, mockPassword)
-		assert.NoError(err)
+		assertion.NoError(err)
 	})
 
 	t.Run("test empty username returns error", func(_ *testing.T) {
 		err := addBasicAuthTestCase("", mockPassword)
-		assert.ErrorContainsf(err, err.Error(), "provide a valid username")
+		assertion.ErrorContainsf(err, err.Error(), "provide a valid username")
 	})
 
 	t.Run("test empty password returns error", func(_ *testing.T) {
 		err := addBasicAuthTestCase(mockUsername, "")
-		assert.ErrorContainsf(err, err.Error(), "provide a valid password")
+		assertion.ErrorContainsf(err, err.Error(), "provide a valid password")
 	})
 }
 
@@ -155,7 +158,7 @@ func addBasicAuthTestCase(username string, password string) error {
 
 func TestGenerateToken(t *testing.T) {
 	mockClient := &mocks.ClientInterface{}
-	assert := assert.New(t)
+	assertion := assert.New(t)
 	tokenType := client.TokenType
 
 	mockCreateBody := v2.CreateTokenJSONRequestBody{
@@ -167,22 +170,22 @@ func TestGenerateToken(t *testing.T) {
 	t.Run("with some client interface error", func(_ *testing.T) {
 		mockClient.On("CreateToken", mock.Anything, v2.Stack(mockStack), mockCreateBody).Return(nil, errors.New("some error")).Once()
 		token, err := client.GenerateToken(context.TODO(), mockClient, mockUsername, mockStack)
-		assert.Error(err)
-		assert.Equal(token, "")
+		assertion.Error(err)
+		assertion.Equal(token, "")
 	})
 
 	t.Run("with some unmarshal error", func(_ *testing.T) {
 		mockClient.On("CreateToken", mock.Anything, v2.Stack(mockStack), mockCreateBody).Return(genInvalidTokenResp(200), errors.New("some error")).Once()
 		token, err := client.GenerateToken(context.TODO(), mockClient, mockUsername, mockStack)
-		assert.ErrorContainsf(err, err.Error(), "unmarshal error")
-		assert.Equal(token, "")
+		assertion.ErrorContainsf(err, err.Error(), "unmarshal error")
+		assertion.Equal(token, "")
 	})
 
 	t.Run("with valid params and http response 200", func(_ *testing.T) {
 		mockClient.On("CreateToken", mock.Anything, v2.Stack(mockStack), mockCreateBody).Return(genTokenResp(200), nil).Once()
 		token, err := client.GenerateToken(context.TODO(), mockClient, mockUsername, mockStack)
-		assert.NoError(err)
-		assert.Equal(token, mockToken)
+		assertion.NoError(err)
+		assertion.Equal(token, mockToken)
 	})
 
 	// http unexpected status codes
@@ -191,8 +194,8 @@ func TestGenerateToken(t *testing.T) {
 			t.Run(fmt.Sprintf("with unexpected status %v", unexpectedStatusCode), func(_ *testing.T) {
 				mockClient.On("CreateToken", mock.Anything, v2.Stack(mockStack), mockCreateBody).Return(genTokenResp(unexpectedStatusCode), nil).Once()
 				token, err := client.GenerateToken(context.TODO(), mockClient, mockUsername, mockStack)
-				assert.Error(err)
-				assert.Equal(token, "")
+				assertion.Error(err)
+				assertion.Equal(token, "")
 			})
 		}
 	})

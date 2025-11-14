@@ -100,9 +100,6 @@ else
 MOCKERY=$(shell which mockery)
 endif
 
-## Run acceptance tests
-#.PHONY: testacc
-
 ###################################
 #	CICD
 ###################################

@@ -1,11 +1,14 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
@@ -13,6 +16,7 @@ import (
 )
 
 const TokenType = "ephemeral"
+const SplunkbaseSessionURL = "https://splunkbase.splunk.com/api/account:login"
 
 type ACSProvider struct {
 	Client *v2.ClientInterface
@@ -39,20 +43,20 @@ func (e errInvalidAuth) Error() string {
 }
 
 // GetClient retrieves client with bearer authentication
-func GetClient(server string, token string, version string) (v2.ClientInterface, error) {
+func GetClient(server string, token string, version string, splunkbaseSession string) (v2.ClientInterface, error) {
 	acsClient, err := v2.NewClient(server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize the client: %w", err)
 	}
-	acsClient.RequestEditors = CommonRequestEditors(token, version)
+	acsClient.RequestEditors = CommonRequestEditors(token, version, splunkbaseSession)
 	return acsClient, nil
 }
 
-func CommonRequestEditors(token string, version string) []v2.RequestEditorFn {
+func CommonRequestEditors(token string, version string, splunkbaseSession string) []v2.RequestEditorFn {
 	addUserAgent := func(_ context.Context, req *http.Request) error {
 		return AddUserAgent(req, version)
 	}
-	return []v2.RequestEditorFn{AddBearerAuth(token), addUserAgent}
+	return []v2.RequestEditorFn{AddBearerAuth(token), addUserAgent, AddXSplunkbaseAuthorizationHeader(splunkbaseSession)}
 }
 
 func AddBearerAuth(token string) v2.RequestEditorFn {
@@ -72,7 +76,7 @@ func AddUserAgent(req *http.Request, version string) error {
 }
 
 // GetClientBasicAuth retrieves client with Basic authentication instead of bearer authentication to use to generate token
-func GetClientBasicAuth(server string, username string, password string, version string) (v2.ClientInterface, error) {
+func GetClientBasicAuth(server string, username string, password string, version string) (*v2.Client, error) {
 	acsClient, err := v2.NewClient(server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize the client: %w", err)
@@ -101,11 +105,17 @@ func AddBasicAuth(username string, password string) v2.RequestEditorFn {
 	}
 }
 
+func AddXSplunkbaseAuthorizationHeader(splunkbaseSession string) v2.RequestEditorFn {
+	return func(_ context.Context, req *http.Request) error {
+		req.Header.Set("X-Splunkbase-Authorization", splunkbaseSession)
+		return nil
+	}
+}
+
 // GenerateToken creates an ephemeral token to be used for ACS client
 func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user string, stack string) (string, error) {
 	tflog.Info(ctx, fmt.Sprintf("Creating token on stack %s", stack))
 	tokenType := TokenType
-
 	tokenBody := v2.CreateTokenJSONRequestBody{
 		User:     user,
 		Audience: user,
@@ -116,6 +126,7 @@ func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user
 		return "", err
 	}
 	defer resp.Body.Close()
+
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
 	tflog.Info(ctx, fmt.Sprintf("Create token request ID %s", resp.Header.Get("X-REQUEST-ID")))
@@ -130,4 +141,58 @@ func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user
 	}
 
 	return loginResult.Token, nil
+}
+
+func GetSplunkbaseSession(ctx context.Context, username, password string) (string, error) {
+	tflog.Info(ctx, "Getting Splunkbase session")
+	method := "POST"
+	payload := &bytes.Buffer{}
+	writer := multipart.NewWriter(payload)
+	err := writer.WriteField("username", username)
+	if err != nil {
+		return "", fmt.Errorf("error writing field: %w", err)
+	}
+	err = writer.WriteField("password", password)
+	if err != nil {
+		return "", fmt.Errorf("error writing field: %w", err)
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return "", fmt.Errorf("error closing writer: %w", err)
+	}
+
+	client := &http.Client{}
+	req, err := http.NewRequest(method, SplunkbaseSessionURL, payload)
+	if err != nil {
+		return "", fmt.Errorf("error creating request: %w", err)
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	res, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error making request: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Error closing response body: %v", err))
+		}
+	}(res.Body)
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %w", err)
+	}
+	type LoginResponse struct {
+		ID string `xml:"id"`
+	}
+
+	var loginResponse LoginResponse
+	err = xml.Unmarshal(body, &loginResponse)
+	if err != nil {
+		return "", fmt.Errorf("error unmarshalling XML: %w", err)
+	}
+	return loginResponse.ID, nil
+
 }

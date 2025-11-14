@@ -14,6 +14,7 @@ import (
 	"github.com/splunk/terraform-provider-scp/internal/ipallowlists"
 	"github.com/splunk/terraform-provider-scp/internal/ipv6allowlists"
 	"github.com/splunk/terraform-provider-scp/internal/roles"
+	splunkbaseapps "github.com/splunk/terraform-provider-scp/internal/splunkbase_apps"
 	"github.com/splunk/terraform-provider-scp/internal/users"
 )
 
@@ -58,6 +59,7 @@ func providerResources() map[string]*schema.Resource {
 		ipv6allowlists.ResourceKey: ipv6allowlists.ResourceIPv6Allowlist(),
 		roles.ResourceKey:          roles.ResourceRole(),
 		users.ResourceKey:          users.ResourceUser(),
+		splunkbaseapps.ResourceKey: splunkbaseapps.ResourceSplunkbaseApp(),
 	}
 }
 
@@ -105,20 +107,31 @@ func providerSchema() map[string]*schema.Schema {
 			DefaultFunc:  schema.EnvDefaultFunc("STACK_PASSWORD", nil),
 			Description:  "Splunk Cloud Platform deployment password. May also be provided via STACK_PASSWORD environment variable.",
 		},
+		"splunk_username": {
+			Type:        schema.TypeString,
+			Optional:    true,
+			DefaultFunc: schema.EnvDefaultFunc("SPLUNK_USERNAME", nil),
+			Description: "Splunk username, will be used to log in to splunkbase. May also be provided via SPLUNK_USERNAME environment variable.",
+		},
+		"splunk_password": {
+			Type:         schema.TypeString,
+			Optional:     true,
+			Sensitive:    true,
+			RequiredWith: []string{"splunk_username"},
+			DefaultFunc:  schema.EnvDefaultFunc("SPLUNK_PASSWORD", nil),
+			Description:  "Splunk user password, will be used to log in to splunkbase. May also be provided via SPLUNK_PASSWORD environment variable.",
+		},
 	}
 }
 
 func configure(ctx context.Context, d *schema.ResourceData, version string) (interface{}, diag.Diagnostics) {
 	provider := client.ACSProvider{}
-
-	// initialize stack
 	stackName, ok := d.GetOk("stack")
 	if !ok || stackName == "" {
 		return nil, diag.Errorf("missing Splunk Deployment stack name")
 	}
 	provider.Stack = v2.Stack(stackName.(string))
 
-	// initialize client to ACS
 	server, ok := d.GetOk("server")
 	if !ok || server == "" {
 		return nil, diag.Errorf("missing server url")
@@ -149,8 +162,19 @@ func configure(ctx context.Context, d *schema.ResourceData, version string) (int
 		}
 	}
 
-	acsClient, err := client.GetClient(server.(string), token.(string), version)
+	splunkbaseUsername, splunkUsernameOk := d.GetOk("splunk_username")
+	splunkbasePassword, splunkPasswordOk := d.GetOk("splunk_password")
 
+	var splunkbaseSession string
+	var err error
+
+	if splunkUsernameOk && splunkPasswordOk {
+		splunkbaseSession, err = client.GetSplunkbaseSession(ctx, splunkbaseUsername.(string), splunkbasePassword.(string))
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
+	}
+	acsClient, err := client.GetClient(server.(string), token.(string), version, splunkbaseSession)
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
