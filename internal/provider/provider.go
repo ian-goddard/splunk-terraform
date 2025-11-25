@@ -8,11 +8,14 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	v2 "github.com/splunk/terraform-provider-scp/acs/v2"
+	"github.com/splunk/terraform-provider-scp/appinspect"
 	"github.com/splunk/terraform-provider-scp/client"
+	"github.com/splunk/terraform-provider-scp/internal/appvalidation"
 	"github.com/splunk/terraform-provider-scp/internal/hec"
 	"github.com/splunk/terraform-provider-scp/internal/indexes"
 	"github.com/splunk/terraform-provider-scp/internal/ipallowlists"
 	"github.com/splunk/terraform-provider-scp/internal/ipv6allowlists"
+	privateapps "github.com/splunk/terraform-provider-scp/internal/private_apps"
 	"github.com/splunk/terraform-provider-scp/internal/roles"
 	splunkbaseapps "github.com/splunk/terraform-provider-scp/internal/splunkbase_apps"
 	"github.com/splunk/terraform-provider-scp/internal/users"
@@ -60,13 +63,15 @@ func providerResources() map[string]*schema.Resource {
 		roles.ResourceKey:          roles.ResourceRole(),
 		users.ResourceKey:          users.ResourceUser(),
 		splunkbaseapps.ResourceKey: splunkbaseapps.ResourceSplunkbaseApp(),
+		privateapps.ResourceKey:    privateapps.ResourcePrivateApp(),
 	}
 }
 
 // Returns a map of Splunk data sources for configuration
 func providerDataSources() map[string]*schema.Resource {
 	return map[string]*schema.Resource{
-		indexes.ResourceKey: indexes.DataSourceIndex(),
+		indexes.ResourceKey:         indexes.DataSourceIndex(),
+		appvalidation.DataSourceKey: appvalidation.DataSourcePrivateAppValidation(),
 	}
 }
 
@@ -174,10 +179,17 @@ func configure(ctx context.Context, d *schema.ResourceData, version string) (int
 			return nil, diag.FromErr(err)
 		}
 	}
-	acsClient, err := client.GetClient(server.(string), token.(string), version, splunkbaseSession)
+	splunkLoginToken, err := client.GetSplunkLoginToken(splunkbaseUsername.(string), splunkbasePassword.(string))
 	if err != nil {
 		return nil, diag.FromErr(err)
 	}
+	acsClient, err := client.GetClient(server.(string), token.(string), version, splunkbaseSession, splunkLoginToken)
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+
+	appInspectClient := appinspect.GetAppInspectClient(splunkLoginToken)
+	provider.AppInspectClient = &appInspectClient
 
 	provider.Client = &acsClient
 	return provider, nil

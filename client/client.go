@@ -13,14 +13,17 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 	v2 "github.com/splunk/terraform-provider-scp/acs/v2"
+	"github.com/splunk/terraform-provider-scp/appinspect"
 )
 
 const TokenType = "ephemeral"
 const SplunkbaseSessionURL = "https://splunkbase.splunk.com/api/account:login"
+const SplunkLoginURL = "https://api.splunk.com/2.0/rest/login/splunk"
 
 type ACSProvider struct {
-	Client *v2.ClientInterface
-	Stack  v2.Stack
+	Client           *v2.ClientInterface
+	Stack            v2.Stack
+	AppInspectClient *appinspect.ClientInterface
 }
 
 type LoginResult struct {
@@ -43,20 +46,20 @@ func (e errInvalidAuth) Error() string {
 }
 
 // GetClient retrieves client with bearer authentication
-func GetClient(server string, token string, version string, splunkbaseSession string) (v2.ClientInterface, error) {
+func GetClient(server string, token string, version string, splunkbaseSession string, splunkLoginToken string) (v2.ClientInterface, error) {
 	acsClient, err := v2.NewClient(server)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize the client: %w", err)
 	}
-	acsClient.RequestEditors = CommonRequestEditors(token, version, splunkbaseSession)
+	acsClient.RequestEditors = CommonRequestEditors(token, version, splunkbaseSession, splunkLoginToken)
 	return acsClient, nil
 }
 
-func CommonRequestEditors(token string, version string, splunkbaseSession string) []v2.RequestEditorFn {
+func CommonRequestEditors(token string, version string, splunkbaseSession string, splunkLoginToken string) []v2.RequestEditorFn {
 	addUserAgent := func(_ context.Context, req *http.Request) error {
 		return AddUserAgent(req, version)
 	}
-	return []v2.RequestEditorFn{AddBearerAuth(token), addUserAgent, AddXSplunkbaseAuthorizationHeader(splunkbaseSession)}
+	return []v2.RequestEditorFn{AddBearerAuth(token), addUserAgent, AddXSplunkbaseAuthorizationHeader(splunkbaseSession), AddSplunkLoginToken(splunkLoginToken)}
 }
 
 func AddBearerAuth(token string) v2.RequestEditorFn {
@@ -111,6 +114,57 @@ func AddXSplunkbaseAuthorizationHeader(splunkbaseSession string) v2.RequestEdito
 		return nil
 	}
 }
+func AddSplunkLoginToken(splunkLoginToken string) v2.RequestEditorFn {
+	return func(_ context.Context, req *http.Request) error {
+		req.Header.Set("X-Splunk-Authorization", splunkLoginToken)
+		return nil
+	}
+}
+
+// GetSplunkLoginTokenWithClient retrieves a Splunk login token with provided HTTP client and URL
+func GetSplunkLoginTokenWithClient(username, password string, httpClient *http.Client, url string) (string, error) {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("error creating request: %w", err)
+	}
+
+	req.SetBasicAuth(username, password)
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("error making request: %w", err)
+	}
+
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			tflog.Error(context.Background(), fmt.Sprintf("Error closing response body: %v", err))
+		}
+	}(resp.Body)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("error reading response body: %w", err)
+	}
+	var responseData struct {
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	err = json.Unmarshal(body, &responseData)
+	if err != nil {
+		return "", fmt.Errorf("error parsing JSON: %w", err)
+	}
+	return responseData.Data.Token, nil
+}
+
+// GetSplunkLoginToken retrieves a Splunk login token using default client and URL
+func GetSplunkLoginToken(username, password string) (string, error) {
+	return GetSplunkLoginTokenWithClient(username, password, &http.Client{}, SplunkLoginURL)
+}
 
 // GenerateToken creates an ephemeral token to be used for ACS client
 func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user string, stack string) (string, error) {
@@ -125,8 +179,12 @@ func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
-
+	defer func(Body io.ReadCloser) {
+		err := Body.Close()
+		if err != nil {
+			tflog.Error(ctx, fmt.Sprintf("Error closing response body: %v", err))
+		}
+	}(resp.Body)
 	bodyBytes, _ := io.ReadAll(resp.Body)
 
 	tflog.Info(ctx, fmt.Sprintf("Create token request ID %s", resp.Header.Get("X-REQUEST-ID")))
@@ -143,7 +201,12 @@ func GenerateToken(ctx context.Context, clientInterface v2.ClientInterface, user
 	return loginResult.Token, nil
 }
 
-func GetSplunkbaseSession(ctx context.Context, username, password string) (string, error) {
+// GetSplunkbaseSessionWithClient retrieves a Splunkbase session with provided HTTP client and URL
+func GetSplunkbaseSessionWithClient(ctx context.Context, username, password string, httpClient *http.Client, url string) (string, error) {
+	if httpClient == nil {
+		httpClient = &http.Client{}
+	}
+
 	tflog.Info(ctx, "Getting Splunkbase session")
 	method := "POST"
 	payload := &bytes.Buffer{}
@@ -162,14 +225,13 @@ func GetSplunkbaseSession(ctx context.Context, username, password string) (strin
 		return "", fmt.Errorf("error closing writer: %w", err)
 	}
 
-	client := &http.Client{}
-	req, err := http.NewRequest(method, SplunkbaseSessionURL, payload)
+	req, err := http.NewRequest(method, url, payload)
 	if err != nil {
 		return "", fmt.Errorf("error creating request: %w", err)
 	}
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
-	res, err := client.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("error making request: %w", err)
 	}
@@ -194,5 +256,9 @@ func GetSplunkbaseSession(ctx context.Context, username, password string) (strin
 		return "", fmt.Errorf("error unmarshalling XML: %w", err)
 	}
 	return loginResponse.ID, nil
+}
 
+// GetSplunkbaseSession retrieves a Splunkbase session using default client and URL
+func GetSplunkbaseSession(ctx context.Context, username, password string) (string, error) {
+	return GetSplunkbaseSessionWithClient(ctx, username, password, &http.Client{}, SplunkbaseSessionURL)
 }
