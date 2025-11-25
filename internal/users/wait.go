@@ -3,11 +3,12 @@ package users
 import (
 	"context"
 	"fmt"
+	"net/http"
+
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-	"github.com/splunk/terraform-provider-scp/acs/v2"
+	v2 "github.com/splunk/terraform-provider-scp/acs/v2"
 	"github.com/splunk/terraform-provider-scp/internal/status"
 	"github.com/splunk/terraform-provider-scp/internal/wait"
-	"net/http"
 )
 
 // For all CRUD operations on synchronous resources we expect a target status of 200.

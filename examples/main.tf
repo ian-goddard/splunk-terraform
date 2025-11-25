@@ -7,8 +7,19 @@ terraform {
 }
 
 provider "scp" {
-  stack  = "example-stack"
+  stack = "example-stack"
   server = "https://admin.splunk.com"
+  /*****
+  To auth to stack use:
+  username = "admin" 
+  password = var.password
+  OR
+  auth_token = var.token
+  -----------------------
+  To auth to splunkbase use:
+  splunk_username = var.splunk_username
+  splunk_password = var.splunk_password
+   *****/
 }
 
 resource "scp_indexes" "index-1" {
@@ -16,7 +27,7 @@ resource "scp_indexes" "index-1" {
 }
 
 resource "scp_indexes" "index-2" {
-  name            = "index-2"
+  name = "index-2"
   searchable_days = 90
 }
 
@@ -38,4 +49,11 @@ data "scp_indexes" "main" {
 
 data "scp_indexes" "history" {
   name = "history"
+}
+
+resource "scp_private_app" "test_0" {
+  name = "test_0"
+  filename  = "../examples/test_app.tar.gz"
+  acs_legal_ack = "Y"
+  pre_vetted = true
 }

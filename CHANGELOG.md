@@ -40,3 +40,7 @@
 
 ## Version v1.2.7
 * Go updated to 1.25.3
+
+## Version v1.3.0
+* Support to manage private apps added
+* Support to manage Splunkbase apps added

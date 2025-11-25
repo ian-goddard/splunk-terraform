@@ -2,10 +2,11 @@ package status
 
 import (
 	"errors"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
 const (
@@ -44,7 +45,16 @@ func ProcessResponse(resp *http.Response, targetStateCodes []string, pendingStat
 	}
 	statusCode := resp.StatusCode
 	statusText := http.StatusText(statusCode)
-	bodyBytes, _ := io.ReadAll(resp.Body)
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", &resource.UnexpectedStateError{LastError: err}
+	}
+	if statusCode == http.StatusServiceUnavailable {
+		return nil, statusText, &resource.UnexpectedStateError{
+			State:         statusText,
+			ExpectedState: targetStateCodes,
+			LastError:     errors.New(string(bodyBytes))}
+	}
 
 	if !IsStatusCodeExpected(statusCode, targetStateCodes, pendingStatusCodes) {
 		return nil, statusText, &resource.UnexpectedStateError{

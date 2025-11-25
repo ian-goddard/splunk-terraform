@@ -9,7 +9,7 @@ import (
 
 const (
 	ResourceExistsErr       = "already exists, use a different name to create hec token or use terraform import to bring current hec under terraform management"
-	AcsErrSuffix            = "Please refer https://docs.splunk.com/Documentation/SplunkCloud/latest/Config/ACSerrormessages for general troubleshooting tips."
+	AcsErrSuffix            = "Please refer to https://docs.splunk.com/Documentation/SplunkCloud/latest/Config/ACSerrormessages for general troubleshooting tips."
 	FailedDeploymentTaskErr = "previous deployment task has failed"
 )
 
