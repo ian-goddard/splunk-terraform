@@ -44,3 +44,6 @@
 ## Version v1.3.0
 * Support to manage private apps added
 * Support to manage Splunkbase apps added
+
+## Version v1.3.1
+* Update and reformat documentation for private apps and Splunkbase apps resources
