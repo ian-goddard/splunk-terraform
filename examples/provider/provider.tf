@@ -1,4 +1,4 @@
 provider "scp" {
-  stack  = "my-stack"
+  stack  = "govuk-one-login"
   server = "https://admin.splunk.com"
 }
